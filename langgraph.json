@@ -1,0 +1,8 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "response_agent": "./src/email_assistant/assistant.py:response_agent",
+    "email_assistant": "./src/email_assistant/assistant.py:email_assistant"
+  },
+  "env": ".env"
+}   

@@ -1,0 +1,8 @@
+"""Tool prompt for the email assistant."""
+
+# Tool descriptions for agent workflow without triage
+AGENT_TOOLS_PROMPT = """
+1. write_email(to, subject, content) - Send emails to specified recipients
+2. check_calendar_availability(day) - Check available time slots for a given day
+3. Done - E-mail has been sent
+"""
