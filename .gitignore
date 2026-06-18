@@ -14,3 +14,8 @@ wheels/
 
 # langgraph
 .langgraph_api/
+
+# Local OAuth credentials
+src/email_assistant/tools/outlook/.secrets/
+
+src/email_assistant/tools/gmail/
