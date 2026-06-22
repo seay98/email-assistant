@@ -6,3 +6,11 @@ AGENT_TOOLS_PROMPT = """
 2. check_calendar_availability(day) - Check available time slots for a given day
 3. Done - E-mail has been sent
 """
+
+# Tool descriptions for HITL workflow
+HITL_TOOLS_PROMPT = """
+1. write_email(to, subject, content) - Send emails to specified recipients
+2. check_calendar_availability(day) - Check available time slots for a given day
+3. Question(content) - Ask the user any follow-up questions
+4. Done - E-mail has been sent
+"""
