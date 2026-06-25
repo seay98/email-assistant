@@ -23,7 +23,7 @@ src/email_assistant/tools/outlook/.secrets/token.json
 - 使用 `$select` 只读取邮件助手需要的字段。
 - 默认按 `receivedDateTime desc` 排序。
 - 默认只抓取最近 `--hours-since` 小时内的未读邮件。
-- 使用客户端过滤，保留发件人或收件人匹配 `--email` 的邮件。
+- 可选使用 `--email` 做客户端过滤，保留发件人或收件人匹配该地址的邮件。
 - 将 Graph message 规范化成 LangGraph ingestion 使用的字段。
 
 规范化后的字段包括：
@@ -166,7 +166,6 @@ uv run python src/email_assistant/tools/outlook/test_fetch.py --mock
 
 ```bash
 uv run python src/email_assistant/tools/outlook/test_fetch.py \
-  --email your_account@hotmail.com \
   --hours-since 24 \
   --print-filter
 ```
@@ -185,17 +184,24 @@ uv run python src/email_assistant/tools/outlook/test_fetch.py \
 
 ```bash
 uv run python src/email_assistant/tools/outlook/test_fetch.py \
-  --email your_account@hotmail.com \
   --hours-since 24 \
   --include-read \
   --limit 5
+```
+
+如果要查找更早的已读邮件，`--include-read` 需要配合更大的时间范围，或直接关闭时间过滤：
+
+```bash
+uv run python src/email_assistant/tools/outlook/test_fetch.py \
+  --include-read \
+  --hours-since 0 \
+  --limit 10
 ```
 
 显示正文预览：
 
 ```bash
 uv run python src/email_assistant/tools/outlook/test_fetch.py \
-  --email your_account@hotmail.com \
   --hours-since 24 \
   --include-read \
   --limit 5 \
@@ -210,7 +216,7 @@ bash src/email_assistant/tools/outlook/test_fetch_commands.sh fetch
 bash src/email_assistant/tools/outlook/test_fetch_commands.sh fetch-body
 ```
 
-`test_fetch_commands.sh` 顶部有默认邮箱、时间范围和输出数量配置，也可以用环境变量临时覆盖：
+`test_fetch_commands.sh` 默认不传 `--email`，只使用时间范围和输出数量配置。需要收窄到某个地址时，可以临时设置 `EMAIL`：
 
 ```bash
 EMAIL=other@example.com HOURS_SINCE=48 LIMIT=10 \
@@ -235,7 +241,6 @@ http://127.0.0.1:2024
 
 ```bash
 uv run python src/email_assistant/tools/outlook/run_ingest.py \
-  --email your_account@hotmail.com \
   --hours-since 24 \
   --graph-name email_assistant \
   --url http://127.0.0.1:2024
@@ -243,21 +248,23 @@ uv run python src/email_assistant/tools/outlook/run_ingest.py \
 
 常用参数：
 
-- `--email`：必填。用于客户端侧匹配发件人或收件人。
-- `--hours-since`：只读取最近多少小时的邮件，默认 `2`。
+- `--email`：可选。用于客户端侧匹配发件人或收件人；不传时返回当前 token mailbox 中满足其他条件的邮件。
+- `--hours-since`：只读取最近多少小时的邮件，默认 `2`；设为 `0` 可关闭时间过滤。
+- `--no-time-filter`：只关闭时间过滤，保留已读状态和邮箱匹配过滤。
 - `--graph-name`：LangGraph graph 名称，默认 `email_assistant`。
 - `--url`：LangGraph 服务地址，默认 `http://127.0.0.1:2024`。
 - `--early`：只处理第一封匹配邮件，适合调试。
-- `--include-read`：包含已读邮件。默认只抓未读邮件。
+- `--include-read`：包含已读邮件。默认只抓未读邮件；查历史已读邮件时还要增大 `--hours-since` 或关闭时间过滤。
 - `--rerun`：同一封邮件即使已经处理过，也重新创建 run。
 - `--wait`：等待每个 LangGraph run 完成，并打印最终 state 摘要。
-- `--skip-filters`：跳过时间、未读和邮箱匹配过滤。
+- `--skip-email-filter`：跳过发件人/收件人邮箱匹配，保留服务端时间和已读状态过滤。
+- `--skip-filters`：兼容旧参数，跳过时间、未读和邮箱匹配过滤。
+- `--fetch-limit`：Microsoft Graph 每页抓取数量，默认 `25`；`test_fetch.py` 的 `--limit` 只控制打印数量。
 
 调试时推荐先只处理一封，并等待结果：
 
 ```bash
 uv run python src/email_assistant/tools/outlook/run_ingest.py \
-  --email your_account@hotmail.com \
   --hours-since 24 \
   --include-read \
   --early \
@@ -334,13 +341,22 @@ src/email_assistant/tools/outlook/.secrets/token.json
 
 ### 没有抓到邮件
 
-默认只抓最近 2 小时内的未读邮件，并且还会按 `--email` 做发件人/收件人匹配。可以尝试：
+默认只抓最近 2 小时内的未读邮件。邮件是通过当前 token 调用 `/me/messages` 获取的，所以不传 `--email` 时就是当前 mailbox 中满足时间和已读状态条件的邮件。`--include-read` 只表示包含已读邮件，不会自动取消时间范围。可以尝试：
 
 ```bash
 uv run python src/email_assistant/tools/outlook/test_fetch.py \
-  --email your_account@hotmail.com \
   --hours-since 72 \
   --include-read
+```
+
+如果要确认历史已读邮件是否能返回，用：
+
+```bash
+uv run python src/email_assistant/tools/outlook/test_fetch.py \
+  --include-read \
+  --hours-since 0 \
+  --limit 10 \
+  --show-body
 ```
 
 如果只是想确认 Graph API 能返回邮件，可以临时加 `--skip-filters`。

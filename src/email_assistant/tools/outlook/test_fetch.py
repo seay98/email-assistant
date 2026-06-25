@@ -65,11 +65,13 @@ def _plain_preview(content, width=240):
     return f"{plain[:width].rstrip()}..."
 
 
-def print_email(email_data, show_body=False):
+def print_email(email_data, show_body=False, is_read=None):
     print(f"From: {email_data['from_email']}")
     print(f"To: {email_data['to_email']}")
     print(f"Subject: {email_data['subject']}")
     print(f"Received: {email_data['send_time']}")
+    if is_read is not None:
+        print(f"Read: {'yes' if is_read else 'no'}")
     print(f"ID: {email_data['id']}")
     print(f"Thread: {email_data['thread_id']}")
     if show_body:
@@ -80,7 +82,7 @@ def print_email(email_data, show_body=False):
 def run_mock(args):
     email_data = extract_email_data(MOCK_MESSAGE)
     print("Mock Outlook message normalized successfully")
-    print_email(email_data, show_body=True)
+    print_email(email_data, show_body=True, is_read=MOCK_MESSAGE.get("isRead"))
     return 0
 
 
@@ -102,7 +104,11 @@ def run_real_fetch(args):
     for index, message in enumerate(messages[: args.limit], start=1):
         email_data = extract_email_data(message)
         print(f"\nMessage {index}/{min(len(messages), args.limit)}")
-        print_email(email_data, show_body=args.show_body)
+        print_email(
+            email_data,
+            show_body=args.show_body,
+            is_read=message.get("isRead"),
+        )
 
     if len(messages) > args.limit:
         print(f"\n{len(messages) - args.limit} additional messages not shown")
@@ -117,30 +123,49 @@ def parse_args():
     parser.add_argument(
         "--email",
         type=str,
-        default="test@example.com",
-        help="Email address used for client-side sender/recipient matching",
+        default=None,
+        help="Optional email address used for client-side sender/recipient matching",
     )
     parser.add_argument(
         "--hours-since",
         type=int,
         default=2,
-        help="Only retrieve emails newer than this many hours",
+        help="Only retrieve emails newer than this many hours; use 0 for no time filter",
+    )
+    parser.add_argument(
+        "--no-time-filter",
+        action="store_true",
+        help="Disable the receivedDateTime filter without disabling other filters",
     )
     parser.add_argument(
         "--include-read",
         action="store_true",
-        help="Include emails that have already been read",
+        help=(
+            "Include emails that have already been read; use with "
+            "--hours-since 0 or --no-time-filter to search older read mail"
+        ),
+    )
+    parser.add_argument(
+        "--skip-email-filter",
+        action="store_true",
+        help="Skip client-side sender/recipient matching",
     )
     parser.add_argument(
         "--skip-filters",
         action="store_true",
-        help="Skip Outlook query filters",
+        help="Skip all Outlook query filters and client-side email filtering",
     )
     parser.add_argument(
         "--limit",
         type=int,
         default=5,
         help="Maximum number of fetched messages to print",
+    )
+    parser.add_argument(
+        "--fetch-limit",
+        type=int,
+        default=25,
+        help="Microsoft Graph page size for each fetch request",
     )
     parser.add_argument(
         "--show-body",
