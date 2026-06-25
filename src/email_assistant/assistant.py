@@ -139,21 +139,21 @@ def response_interrupt_handler(state: State) -> Command[Literal["llm_call", "__e
         if tool_call["name"] == "write_email":
             config = {
                 "allow_ignore": True,
-                "allow_response": True,
+                "allow_respond": True,
                 "allow_edit": True,
                 "allow_accept": True,
             }
         elif tool_call["name"] == "schedule_meeting":
             config = {
                 "allow_ignore": True,
-                "allow_response": True,
+                "allow_respond": True,
                 "allow_edit": True,
                 "allow_accept": True,
             }
         elif tool_call["name"] == "Question":
             config = {
                 "allow_ignore": True,
-                "allow_response": True,
+                "allow_respond": True,
                 "allow_edit": False,
                 "allow_accept": False,
             }
@@ -347,15 +347,16 @@ def triage_router(state: State) -> Command[Literal["triage_interrupt_handler", "
     )
 
     classification = result.classification
+    reasoning = result.reasoning
 
     if classification == "respond":
-        print(f"📧 Classification: RESPOND - Reasoning: {result.reasoning}")
+        print(f"📧 Classification: RESPOND - Reasoning: {reasoning}")
         goto = "response_agent"
         update = {
             "messages": [
                 {
-                    "role": "user",
-                    "content": f"Respond to the email: \n\n{email_markdown}",
+                    "role": "assistant",
+                    "content": f"Respond to the email: \n\n{email_markdown}\n\nReasoning: \n\n{reasoning}",
                 }
             ],
             "classification_decision": classification,
@@ -365,6 +366,12 @@ def triage_router(state: State) -> Command[Literal["triage_interrupt_handler", "
         print("🚫 Classification: IGNORE - This email can be safely ignored")
         goto = END
         update =  {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": f"Reasoning: \n\n{reasoning}",
+                }
+            ],
             "classification_decision": classification,
         }
 
@@ -372,6 +379,12 @@ def triage_router(state: State) -> Command[Literal["triage_interrupt_handler", "
         print("🔔 Classification: NOTIFY - This email contains important information")
         goto = "triage_interrupt_handler"
         update = {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": f"Reasoning: \n\n{reasoning}",
+                }
+            ],
             "classification_decision": classification,
         }
 
@@ -400,7 +413,7 @@ def triage_interrupt_handler(state: State) -> Command[Literal["response_agent", 
         },
         "config": {
             "allow_ignore": True,
-            "allow_response": True,
+            "allow_respond": True,
             "allow_edit": False,
             "allow_accept": False,
         },
@@ -415,7 +428,7 @@ def triage_interrupt_handler(state: State) -> Command[Literal["response_agent", 
         # Add feedback to messages
         user_input = response["args"]
         # Used by the response agent
-        messages.append({"role": "user",
+        messages.append({"role": "assistant",
                         "content": f"User wants to reply to the email. Use this feedback to respond: {user_input}"
                         })
         # Go to response agent

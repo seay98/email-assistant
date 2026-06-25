@@ -8,6 +8,8 @@
 
 - 邮件分流：`email_assistant` graph 会将邮件分类为 `ignore`、`notify` 或 `respond`。
 - 回复 Agent：当分类为 `respond` 时，`response_agent` 会调用默认工具生成一封模拟回复。
+- 人工确认：当分类为 `notify` 时，流程会进入 Agent Inbox，用户可以忽略邮件，也可以补充反馈并转入回复 Agent。
+- HITL 审核：回复草稿和问题类工具调用会先进入人工审核，再决定接受、编辑、补充反馈或忽略。
 - Outlook / Hotmail 接入：`src/email_assistant/tools/outlook` 可以通过 Microsoft Graph 抓取邮件并写入 LangGraph；详细配置和使用方式见 [Outlook 工具说明](src/email_assistant/tools/outlook/README.md)。
 
 注意：默认发信工具是 placeholder，只返回模拟发送结果，不会真正调用邮箱 API 发信。
@@ -27,7 +29,11 @@ triage_router
   |
   |-- ignore --> END
   |
-  |-- notify --> END
+  |-- notify --> triage_interrupt_handler
+  |                 |
+  |                 |-- ignore --> END
+  |                 |
+  |                 |-- respond --> response_agent --> END
   |
   |-- respond --> response_agent --> END
 ```
@@ -107,7 +113,5 @@ uv run langgraph dev
 ## 当前限制与后续计划
 
 - 默认 `write_email` 不会真正发送邮件，后续可替换为真实发信工具。
-- `notify` 分类目前只结束流程，后续可接入通知、待办或消息队列。
 - prompt 中提到了日历能力，但项目尚未实现日历工具。
-- 实现human-in-the-loop。
 - 增加memory。
