@@ -202,14 +202,19 @@ def parse_args():
     parser.add_argument(
         "--email",
         type=str,
-        required=True,
-        help="Email address to fetch messages for",
+        default=None,
+        help="Optional email address used for client-side sender/recipient matching",
     )
     parser.add_argument(
         "--hours-since",
         type=int,
         default=2,
-        help="Only retrieve emails newer than this many hours",
+        help="Only retrieve emails newer than this many hours; use 0 for no time filter",
+    )
+    parser.add_argument(
+        "--no-time-filter",
+        action="store_true",
+        help="Disable the receivedDateTime filter without disabling other filters",
     )
     parser.add_argument(
         "--graph-name",
@@ -231,7 +236,15 @@ def parse_args():
     parser.add_argument(
         "--include-read",
         action="store_true",
-        help="Include emails that have already been read",
+        help=(
+            "Include emails that have already been read; use with "
+            "--hours-since 0 or --no-time-filter to search older read mail"
+        ),
+    )
+    parser.add_argument(
+        "--skip-email-filter",
+        action="store_true",
+        help="Skip client-side sender/recipient matching",
     )
     parser.add_argument(
         "--rerun",
@@ -246,7 +259,13 @@ def parse_args():
     parser.add_argument(
         "--skip-filters",
         action="store_true",
-        help="Skip filtering of emails",
+        help="Skip all Outlook query filters and client-side email filtering",
+    )
+    parser.add_argument(
+        "--fetch-limit",
+        type=int,
+        default=25,
+        help="Microsoft Graph page size for each fetch request",
     )
     return parser.parse_args()
 

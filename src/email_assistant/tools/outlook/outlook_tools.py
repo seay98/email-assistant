@@ -227,21 +227,22 @@ def extract_email_data(message):
     }
 
 
-def _escape_odata_string(value):
-    return value.replace("'", "''")
+def _arg(args, name, default=None):
+    return getattr(args, name, default)
 
 
 def _build_filter(args):
-    if args.skip_filters:
+    if _arg(args, "skip_filters", False):
         return None
 
     filters = []
 
-    if args.hours_since > 0:
-        after = datetime.now(timezone.utc) - timedelta(hours=args.hours_since)
+    hours_since = _arg(args, "hours_since", 0)
+    if not _arg(args, "no_time_filter", False) and hours_since > 0:
+        after = datetime.now(timezone.utc) - timedelta(hours=hours_since)
         filters.append(f"receivedDateTime ge {after.isoformat().replace('+00:00', 'Z')}")
 
-    if not args.include_read:
+    if not _arg(args, "include_read", False):
         filters.append("isRead eq false")
 
     return " and ".join(filters)
@@ -271,10 +272,11 @@ def _message_matches_email(message, email_address):
 
 def fetch_outlook_messages(args, token_data):
     """Fetch messages from Microsoft Graph using Outlook/OData query parameters."""
+    fetch_limit = max(1, _arg(args, "fetch_limit", 25))
     params = {
         "$select": "id,conversationId,subject,from,toRecipients,receivedDateTime,body,isRead",
         "$orderby": "receivedDateTime desc",
-        "$top": "25",
+        "$top": str(fetch_limit),
     }
 
     filter_query = _build_filter(args)
@@ -283,6 +285,11 @@ def fetch_outlook_messages(args, token_data):
         print(f"Outlook filter query: {filter_query}")
     else:
         print("Outlook filter query: <none>")
+    print(f"Outlook page size: {fetch_limit}")
+    if _arg(args, "include_read", False):
+        print("Outlook read-status filter: including read and unread messages")
+    else:
+        print("Outlook read-status filter: unread messages only")
 
     messages = []
     next_url = GRAPH_MESSAGES_URL
@@ -295,14 +302,22 @@ def fetch_outlook_messages(args, token_data):
         next_url = results.get("@odata.nextLink")
         next_params = None
 
-    if not args.skip_filters:
+    email_filter = _arg(args, "email")
+
+    if _arg(args, "skip_filters", False):
+        print("Client-side email filter: skipped by --skip-filters")
+    elif _arg(args, "skip_email_filter", False):
+        print("Client-side email filter: skipped by --skip-email-filter")
+    elif not email_filter:
+        print("Client-side email filter: skipped because --email was not provided")
+    else:
         before_count = len(messages)
         messages = [
-            message for message in messages if _message_matches_email(message, args.email)
+            message for message in messages if _message_matches_email(message, email_filter)
         ]
         print(
             f"Client-side email filter kept {len(messages)}/{before_count} messages "
-            f"for {args.email}"
+            f"for {email_filter}"
         )
 
     return messages

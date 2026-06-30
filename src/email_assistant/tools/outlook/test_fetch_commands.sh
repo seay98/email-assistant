@@ -8,10 +8,10 @@ set -euo pipefail
 # Edit these values for your common local test case, then run:
 #   bash src/email_assistant/tools/outlook/test_fetch_commands.sh fetch
 #
-# You can still override them for one-off calls:
+# You can still narrow results to one address for one-off calls:
 #   EMAIL=other@example.com HOURS_SINCE=48 bash .../test_fetch_commands.sh fetch
 DEFAULT_PYTHON_BIN="uv run python"
-DEFAULT_EMAIL="yuhai_2020@hotmail.com"
+DEFAULT_EMAIL=""
 DEFAULT_HOURS_SINCE="24"
 DEFAULT_LIMIT="5"
 
@@ -19,6 +19,10 @@ PYTHON_BIN="${PYTHON_BIN:-$DEFAULT_PYTHON_BIN}"
 EMAIL="${EMAIL:-$DEFAULT_EMAIL}"
 HOURS_SINCE="${HOURS_SINCE:-$DEFAULT_HOURS_SINCE}"
 LIMIT="${LIMIT:-$DEFAULT_LIMIT}"
+EMAIL_ARGS=()
+if [[ -n "$EMAIL" ]]; then
+  EMAIL_ARGS=(--email "$EMAIL")
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
@@ -39,18 +43,18 @@ Commands:
   filter        Print the default Outlook OData filter
   skip-filter   Print filter output when --skip-filters is enabled
   setup         Run Outlook device-code setup to create .secrets/token.json
-  fetch         Fetch real Outlook messages using current EMAIL/HOURS_SINCE/LIMIT
+  fetch         Fetch real Outlook messages using current HOURS_SINCE/LIMIT
   fetch-body    Fetch real Outlook messages and show body previews
   local         Run compile, mock, filter, and skip-filter
 
 Configured defaults:
   PYTHON_BIN     $PYTHON_BIN
-  EMAIL          $EMAIL
+  EMAIL          ${EMAIL:-<not set>}
   HOURS_SINCE    $HOURS_SINCE
   LIMIT          $LIMIT
 
 Edit DEFAULT_* values at the top of this script for everyday use.
-Environment variables can still override them for one-off calls.
+Set EMAIL only when you want client-side sender/recipient filtering.
 
 Examples:
   $(basename "$0") local
@@ -75,7 +79,7 @@ run_mock() {
 
 run_filter() {
   $PYTHON_BIN "$TEST_FETCH" \
-    --email "$EMAIL" \
+    "${EMAIL_ARGS[@]}" \
     --hours-since "$HOURS_SINCE" \
     --print-filter
 }
@@ -92,7 +96,7 @@ run_setup() {
 
 run_fetch() {
   $PYTHON_BIN "$TEST_FETCH" \
-    --email "$EMAIL" \
+    "${EMAIL_ARGS[@]}" \
     --hours-since "$HOURS_SINCE" \
     --include-read \
     --limit "$LIMIT"
@@ -100,7 +104,7 @@ run_fetch() {
 
 run_fetch_body() {
   $PYTHON_BIN "$TEST_FETCH" \
-    --email "$EMAIL" \
+    "${EMAIL_ARGS[@]}" \
     --hours-since "$HOURS_SINCE" \
     --include-read \
     --limit "$LIMIT" \
